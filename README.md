@@ -5,7 +5,7 @@ Firmware for a DIY embroidery machine.
 ## Hardware
 * A simple DIY plotter
 * A simple grbl board for aruino nano with 3 step sticks
-* A DIY adapter board for replacing the arduino nano with a raspberry pi nano
+* A DIY adapter board for replacing the arduino nano with a raspberry pi pico
 
 ## Dependencies
 The only dependency is the [pico-sdk](https://github.com/raspberrypi/pico-sdk).
