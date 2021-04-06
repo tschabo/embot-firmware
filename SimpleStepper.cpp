@@ -19,11 +19,9 @@
 
 SimpleStepper::SimpleStepper(int enablePin,
                              int dirPin,
-                             int stepPin,
-                             uint32_t stepsPerM) : _enablePin(enablePin),
+                             int stepPin) : _enablePin(enablePin),
                                                    _dirPin(dirPin),
-                                                   _stepPin(stepPin),
-                                                   _stepsPerM(stepsPerM)
+                                                   _stepPin(stepPin)
 {
     gpio_init(_enablePin);
     gpio_set_dir(_enablePin, GPIO_OUT);
@@ -50,45 +48,14 @@ void SimpleStepper::disable() const
 
 uint32_t SimpleStepper::stepsToGo() const
 {
-    return _stepsToGo;
+    return _stepsToGo >= 0 ? _stepsToGo : -_stepsToGo;
 }
 
-void SimpleStepper::moveAbs(float pos)
+void SimpleStepper::moveSteps(int32_t steps, uint32_t stepIntervalInMicroSeconds)
 {
-    int32_t posInStepsFromZero{(pos * (float)_stepsPerM) / 1000.0};
-    if (posInStepsFromZero > _position)
-    {
-        _stepsToGo = posInStepsFromZero - _position;
-        _direction = direction::pos;
-    }
-    else if (posInStepsFromZero < _position)
-    {
-        _stepsToGo = _position - posInStepsFromZero;
-        _direction = direction::neg;
-    }
-    else
-    {
-        _stepsToGo = 0;
-    }
-    gpio_put(_dirPin, (_direction == direction::pos) ? 1 : 0);
-}
-
-void SimpleStepper::moveSteps(uint32_t steps, direction dir)
-{
-    _position = 0;
-    _direction = dir;
+    gpio_put(_dirPin, steps > 0 ? 1 : 0);
+    _stepInterval = stepIntervalInMicroSeconds;
     _stepsToGo = steps;
-}
-
-void SimpleStepper::setSpeed(float speed)
-{
-    _speed = (speed * (float)_stepsPerM) / 1000; // ticks/sec
-    _stepInterval = 1000000 / _speed;
-}
-
-void SimpleStepper::setPosition(float pos)
-{
-    _position = (pos * (float)_stepsPerM) / 1000.0;
 }
 
 void SimpleStepper::run()
@@ -102,18 +69,12 @@ void SimpleStepper::run()
     {
         // step !!!
         gpio_put(_stepPin, 1);
-        sleep_us(2);
+        sleep_us(2); // TODO perhaps we can get rid of this by using PIO
         gpio_put(_stepPin, 0);
-        switch (_direction)
-        {
-        case direction::neg:
-            --_position;
-            break;
-        default:
-            ++_position;
-            break;
-        }
-        --_stepsToGo;
+        if (_stepsToGo > 0)
+            --_stepsToGo;
+        else if (_stepsToGo < 0)
+            ++_stepsToGo;
         _lastStepTime = current;
     }
 }

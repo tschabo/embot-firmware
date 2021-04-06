@@ -25,8 +25,7 @@ class SimpleStepper
 public:
     SimpleStepper(int enablePin,
                   int dirPin,
-                  int stepPin,
-                  uint32_t stepsPerM);
+                  int stepPin);
 
     enum class direction
     {
@@ -37,10 +36,7 @@ public:
     void enable() const;
     void disable() const;
 
-    void moveAbs(float pos);
-    void moveSteps(uint32_t steps, direction dir);
-    void setSpeed(float speed);
-    void setPosition(float pos);
+    void moveSteps(int32_t steps, uint32_t stepIntervalInMicroSeconds);
 
     uint32_t stepsToGo() const;
 
@@ -50,13 +46,9 @@ private:
     const int _enablePin;
     const int _dirPin;
     const int _stepPin;
-    const uint32_t _stepsPerM;
 
     // internal we calculate everything in steps
-    int64_t _position{};
-    uint32_t _stepsToGo{};
-    uint32_t _speed{};
-    direction _direction{direction::pos};
+    int32_t _stepsToGo{};
 
     // time is in micro seconds
     unsigned long _stepInterval{};

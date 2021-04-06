@@ -68,7 +68,7 @@ int main()
             switch (command.command)
             {
             case Command::move:
-                g_hoopMover.moveTo(command.var0, command.var1, command.var3, command.var4);
+                g_hoopMover.move(command.xAxis, command.yAxis, command.motor);
                 break;
             case Command::disable_steppers:
                 g_hoopMover.disable();

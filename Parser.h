@@ -10,69 +10,59 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
+#include "SimpleStepper.h"
+#include "Mover.h"
+
+unsigned char Checksum(unsigned char *data, unsigned int length)
+{
+    static unsigned char Sum;
+    static unsigned char *end;
+
+    Sum = 0;
+    end = data + length;
+
+    do
+    {
+        Sum -= *data++;
+    } while (data != end);
+    return Sum;
+}
 
 struct Command
 {
-    enum
+    enum : uint32_t // for right alignment
     {
         none = 0,
         move = 'm',
         enable_steppers = 'e',
         disable_steppers = 'd',
     } command{none};
-    float var0{};
-    float var1{};
-    uint32_t var3{};
-    float var4 {};
-};
+    MoveValues xAxis{};
+    MoveValues yAxis{};
+    MoveValues motor{};
+    uint32_t checksum{};
 
-template <uint8_t SIZE>
-class CBuffer
-{
-public:
-    bool push_back(char c)
+    bool isChecksumValid()
     {
-        if (full())
-            return false;
-        _buffer[_size] = c;
-        ++_size;
-        return true;
-    }
-
-    void clear()
-    {
-        for (int i = 0; i < SIZE; i++)
+        uint32_t sum{};
+        uint32_t *current = reinterpret_cast<uint32_t *>(this);
+        uint32_t *end = reinterpret_cast<uint32_t *>(this) + ((sizeof(Command) - sizeof(uint32_t)) / sizeof(uint32_t));
+        do
         {
-            _buffer[i] = 0;
-        }
-        _size = 0;
+            sum += *current++;
+        } while (current != end);
+        return sum == checksum;
     }
-
-    uint8_t size() const
-    {
-        return _size;
-    }
-
-    bool full() const
-    {
-        return _size == SIZE;
-    }
-
-    char *data()
-    {
-        return &_buffer[0];
-    }
-
-private:
-    char _buffer[SIZE]{};
-    uint8_t _size{};
 };
+
+static_assert(sizeof(Command) == 32);
 
 class Parser
 {
@@ -80,23 +70,15 @@ public:
     Parser();
 
     // feeding bytewise ... returns Command if the Parser found a complete Command otherwise nullptr
-    Command* push(char c);
+    Command *push(char c);
 
 private:
     enum
     {
         findStart,
-        evalCommand,
-        findX,
-        findY,
-        findMachineTicks,
-        findSpeed,
+        fillBuffer,
     } _state{findStart};
 
-    CBuffer<50> _scratch_buffer{};
+    size_t _readIdx;
     Command _currentCommandBuffer{};
-    void parseCommand(char command);
-    bool parseFloat(char floatPart, float &thePlaceToPut); // returns true if finished parsing
-    bool parseUInt(char uintPart, uint32_t &thePlaceToPut); // returns true if finished parsing
-    bool _finished{false};
 };
