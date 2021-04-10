@@ -21,23 +21,44 @@ Parser::Parser()
 {
 }
 
-Command *Parser::push(char c)
+static const Command INVALID_COMMAND = {};
+
+const Command *Parser::push(uint8_t c)
 {
+    if (_findMagicTries > MAX_MAGIC_TRIES)
+    {
+        return &INVALID_COMMAND;
+        _findMagicTries = 0;
+    }
+
+    if (_state != fillBuffer)
+        ++_findMagicTries;
+
     auto finished = false;
     switch (_state)
     {
-    case findStart:
-        if((unsigned char)c == 0xEB)
-            _state = fillBuffer;
+    case findMagicNumberIdx0:
+        if(c == 0xDE )
+            _state = findMagicNumberIdx1;
+        break;
+    case findMagicNumberIdx1:
+        _state = (c == 0xCA) ? findMagicNumberIdx2 : findMagicNumberIdx0;
+        break;
+    case findMagicNumberIdx2:
+        _state = (c == 0xFB) ? findMagicNumberIdx3 : findMagicNumberIdx0;
+        break;
+    case findMagicNumberIdx3:
+        _state = (c == 0xAD) ? fillBuffer : findMagicNumberIdx0;
         break;
     case fillBuffer:
-        reinterpret_cast<char*>(&_currentCommandBuffer)[_readIdx++] = c;
+        _findMagicTries = 0;
+        reinterpret_cast<uint8_t*>(&_currentCommandBuffer)[_readIdx++] = c;
         if(_readIdx == sizeof(_currentCommandBuffer))
         {
           _readIdx = 0;
-          _state = findStart;
+          _state = findMagicNumberIdx0;
 
-          return _currentCommandBuffer.isChecksumValid() ? &_currentCommandBuffer : nullptr;
+          return &_currentCommandBuffer;
         }
         break;
     }

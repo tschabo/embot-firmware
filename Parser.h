@@ -20,40 +20,30 @@
 #include "SimpleStepper.h"
 #include "Mover.h"
 
-unsigned char Checksum(unsigned char *data, unsigned int length)
-{
-    static unsigned char Sum;
-    static unsigned char *end;
-
-    Sum = 0;
-    end = data + length;
-
-    do
-    {
-        Sum -= *data++;
-    } while (data != end);
-    return Sum;
-}
-
+// do not change the order of the variables
+// ... this is aligned without paddings.
+// We don't want a packed Struct for optimisation reasons. 
 struct Command
 {
-    enum : uint32_t // for right alignment
+    uint32_t commandIdx{};
+    MoveValues xAxis{};
+    MoveValues yAxis{};
+    MoveValues motor{};
+    enum : uint16_t
     {
         none = 0,
         move = 'm',
         enable_steppers = 'e',
         disable_steppers = 'd',
     } command{none};
-    MoveValues xAxis{};
-    MoveValues yAxis{};
-    MoveValues motor{};
-    uint32_t checksum{};
 
-    bool isChecksumValid()
+    uint16_t checksum{0xFFFF}; // initial invalid
+
+    bool valid() const
     {
-        uint32_t sum{};
-        uint32_t *current = reinterpret_cast<uint32_t *>(this);
-        uint32_t *end = reinterpret_cast<uint32_t *>(this) + ((sizeof(Command) - sizeof(uint32_t)) / sizeof(uint32_t));
+        uint16_t sum{};
+        auto current = reinterpret_cast<const char *>(this);
+        auto end = reinterpret_cast<const char *>(this) + (sizeof(Command) - sizeof(checksum));
         do
         {
             sum += *current++;
@@ -61,6 +51,7 @@ struct Command
         return sum == checksum;
     }
 };
+
 
 static_assert(sizeof(Command) == 32);
 
@@ -70,15 +61,20 @@ public:
     Parser();
 
     // feeding bytewise ... returns Command if the Parser found a complete Command otherwise nullptr
-    Command *push(char c);
+    const Command *push(uint8_t c);
 
 private:
-    enum
+    enum : char
     {
-        findStart,
+        findMagicNumberIdx0,
+        findMagicNumberIdx1,
+        findMagicNumberIdx2,
+        findMagicNumberIdx3,
         fillBuffer,
-    } _state{findStart};
+    } _state{findMagicNumberIdx0};
 
     size_t _readIdx;
     Command _currentCommandBuffer{};
+    uint8_t _findMagicTries{};
+    static const uint8_t MAX_MAGIC_TRIES{sizeof(Command)+5};
 };

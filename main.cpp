@@ -25,29 +25,35 @@ int main()
     stdio_init_all();
 
     Mover g_hoopMover;
+
     CommandBuffer<20> g_commandBuffer;
 
     bool wait = false;
-    bool isCommandComplete{};
 
     int serialData = PICO_ERROR_TIMEOUT; // means ready to read
 
+    Command *pCompleteCommand{};
+
     while (true)
     {
+        pCompleteCommand = nullptr;
+        
         if (serialData == PICO_ERROR_TIMEOUT)
             serialData = getchar_timeout_us(0); // if nothing is read ... data remains -1
 
-        isCommandComplete = false;
         if ((serialData != -1) && !g_commandBuffer.isFull())
         {
-            isCommandComplete = g_commandBuffer.push(serialData);
+            pCompleteCommand = g_commandBuffer.push(serialData);
             serialData = PICO_ERROR_TIMEOUT; // reset
         }
 
         if (g_commandBuffer.isFull() && !wait)
         {
+            
             // this is the case, when a command has completed and the buffer got full
             putchar('!'); // signal buffer full
+            if(pCompleteCommand && !pCompleteCommand->valid())
+                putchar('E'); // error
             wait = true;
         }
         else if (!g_commandBuffer.isFull() && wait && (serialData == PICO_ERROR_TIMEOUT))
@@ -55,16 +61,18 @@ int main()
             // this is the case when the buffer was previosly full and the caller is waiting for sending more data.
             // but before we let the caller send more data ... read the pending data (if any) from the serial buffer.
             putchar('+'); // signal there is space left
+            if(pCompleteCommand && !pCompleteCommand->valid())
+                putchar('E'); // error
             wait = false;
         }
-        else if (isCommandComplete)
+        else if (pCompleteCommand)
         {
-            putchar('>'); // normal ACK
+            putchar(pCompleteCommand->valid() ? '>': 'E'); // normal ACK or Error ACK
         }
 
         if (!g_hoopMover.isRunning() && !g_commandBuffer.isEmpty())
         {
-            auto &command = g_commandBuffer.pop();
+            auto &command = g_commandBuffer.pop_back();
             switch (command.command)
             {
             case Command::move:

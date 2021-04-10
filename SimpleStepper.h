@@ -27,12 +27,6 @@ public:
                   int dirPin,
                   int stepPin);
 
-    enum class direction
-    {
-        pos,
-        neg,
-    };
-
     void enable() const;
     void disable() const;
 
